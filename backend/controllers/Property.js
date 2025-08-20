@@ -5,7 +5,7 @@ import multer from "multer";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "Uploads");
+    const uploadDir = path.join(process.cwd(), "uploads"); // Use lowercase 'uploads'
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -13,28 +13,42 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const filename = `${Date.now()}${path.extname(file.originalname)}`;
-    console.log(`Saving file: ${filename}`); // Debug log
+    console.log(`Saving file: ${filename}`);
     cb(null, filename);
   },
 });
 
-const upload = multer({
+export const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only images and videos are allowed'), false);
-    }
+  limits: { 
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 10, // Max 10 files
   },
-});
+}).array('images', 10);
 
 export const addProperty = async (req, res) => {
   try {
     const { title, location, totalPrice, width, length, area, bhk, floor, propertyType, taluka, description } = req.body;
-    console.log('Request body:', req.body); // Debug log
-    console.log('Request files:', req.files); // Debug log
+    console.log('Request body:', req.body);
+    console.log('Request files:', req.files);
+    // Validate file types after upload
+    const validMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'video/mp4',
+      'video/mpeg',
+      'video/webm',
+    ];
+    if (req.files) {
+      for (const file of req.files) {
+        console.log(`Processing file: ${file.originalname}, MIME: ${file.mimetype}, Size: ${file.size} bytes`);
+        if (!validMimeTypes.includes(file.mimetype)) {
+          return res.status(400).json({ error: 'Invalid file type', details: `File ${file.originalname} has invalid MIME type: ${file.mimetype}` });
+        }
+      }
+    }
     const images = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
 
     if (!title || !location || !propertyType) {
@@ -75,7 +89,7 @@ export const getAllProperties = async (req, res) => {
     const properties = await Property.findAll();
     const normalizedProperties = properties.map(prop => ({
       ...prop.toJSON(),
-      images: Array.isArray(prop.images) ? prop.images.map(img => img.replace(/\/uploads\//i, '/Uploads/')) : [],
+      images: Array.isArray(prop.images) ? prop.images.map(img => img.replace(/\/[uU]ploads\//, '/uploads/')) : [],
     }));
     console.log("Fetched properties:", JSON.stringify(normalizedProperties, null, 2));
     res.status(200).json(normalizedProperties);
@@ -93,7 +107,7 @@ export const getPropertyById = async (req, res) => {
     }
     const normalizedProperty = {
       ...property.toJSON(),
-      images: Array.isArray(property.images) ? property.images.map(img => img.replace(/\/Uploads\//i, '/Uploads/')) : [],
+      images: Array.isArray(property.images) ? property.images.map(img => img.replace(/\/[uU]ploads\//, '/uploads/')) : [],
     };
     console.log("Fetched property by ID:", normalizedProperty);
     res.status(200).json(normalizedProperty);
@@ -114,7 +128,7 @@ export const deleteProperty = async (req, res) => {
 
     if (property.images && Array.isArray(property.images)) {
       property.images.forEach((image) => {
-        const imagePath = path.join(process.cwd(), image);
+        const imagePath = path.join(process.cwd(), image.replace(/\/[uU]ploads\//, '/uploads/'));
         try {
           if (fs.existsSync(imagePath)) {
             fs.unlinkSync(imagePath);
@@ -138,16 +152,42 @@ export const deleteProperty = async (req, res) => {
 export const updateProperty = async (req, res) => {
   try {
     console.log("Received ID for update:", req.params.id);
+    console.log("Request headers:", req.headers);
     console.log("Request body:", req.body);
-    console.log("Request files:", req.files);
+    console.log("Request files:", req.files || 'No files uploaded');
 
     const hasFiles = req.headers['content-type']?.includes('multipart/form-data');
-    
+
     if (hasFiles) {
-      upload.array('image', 10)(req, res, async (err) => {
-        if (err && err.code !== 'LIMIT_UNEXPECTED_FILE') {
+      upload(req, res, async (err) => {
+        if (err instanceof multer.MulterError) {
           console.error('Multer error:', err);
           return res.status(400).json({ error: 'Image upload failed', details: err.message });
+        } else if (err) {
+          console.error('File validation error:', err);
+          return res.status(400).json({ error: 'Invalid file type', details: err.message });
+        }
+        // Validate file types after upload
+        const validMimeTypes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'video/mp4',
+          'video/mpeg',
+          'video/webm',
+        ];
+        if (req.files) {
+          for (const file of req.files) {
+            console.log(`Post-upload validation - File: ${file.originalname}, MIME: ${file.mimetype}, Size: ${file.size} bytes`);
+            if (!validMimeTypes.includes(file.mimetype)) {
+              return res.status(400).json({ error: 'Invalid file type', details: `File ${file.originalname} has invalid MIME type: ${file.mimetype}` });
+            }
+          }
+        }
+        if (!req.body || Object.keys(req.body).length === 0) {
+          console.error('No form data received');
+          return res.status(400).json({ error: 'No form data received', details: 'Form data is empty or malformed' });
         }
         await processUpdate(req, res);
       });
@@ -156,13 +196,13 @@ export const updateProperty = async (req, res) => {
     }
   } catch (error) {
     console.error('Error updating property:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
 
 const processUpdate = async (req, res) => {
   const { id } = req.params;
-  const { title, location, totalPrice, width, length, area, bhk, floor, propertyType, taluka, description, existingImages } = req.body;
+  let { title, location, totalPrice, width, length, area, bhk, floor, propertyType, taluka, description } = req.body;
   const property = await Property.findByPk(id);
 
   if (!property) {
@@ -172,9 +212,10 @@ const processUpdate = async (req, res) => {
 
   let images = property.images || [];
   if (req.files && req.files.length > 0) {
+    // Delete old images if new ones are uploaded
     if (property.images && Array.isArray(property.images)) {
       property.images.forEach((image) => {
-        const imagePath = path.join(process.cwd(), image);
+        const imagePath = path.join(process.cwd(), image.replace(/\/[uU]ploads\//, '/uploads/'));
         try {
           if (fs.existsSync(imagePath)) {
             fs.unlinkSync(imagePath);
@@ -185,24 +226,23 @@ const processUpdate = async (req, res) => {
         }
       });
     }
-    images = req.files.map(file => `/Uploads/${file.filename}`);
-    console.log('New images assigned:', images); // Debug log
-  } else if (existingImages) {
-    try {
-      images = JSON.parse(existingImages || '[]');
-      if (!Array.isArray(images)) {
-        console.warn('existingImages is not an array, resetting to empty array');
-        images = [];
-      }
-      images = images.map(img => img.replace(/\/Uploads\//i, '/Uploads/'));
-      console.log('Using existing images:', images); // Debug log
-    } catch (err) {
-      console.error('Error parsing existingImages:', err);
-      images = property.images || [];
-    }
-  } else {
-    console.log('No new files or existingImages provided, keeping existing images:', images); // Debug log
-  }
+    images = req.files.map(file => `/uploads/${file.filename}`);
+    console.log('New images assigned:', images);
+   } 
+  // else if (existingImages) {
+  //   try {
+  //     images = typeof existingImages === 'string' ? JSON.parse(existingImages || '[]') : existingImages;
+  //     if (!Array.isArray(images)) {
+  //       console.warn('existingImages is not an array, resetting to empty array');
+  //       images = [];
+  //     }
+  //     images = images.map(img => img.replace(/\/[uU]ploads\//, '/uploads/'));
+  //     console.log('Using existing images:', images);
+  //   } catch (err) {
+  //     console.error('Error parsing existingImages:', err);
+  //     images = property.images || [];
+  //   }
+  // }
 
   const parsedTotalPrice = totalPrice ? parseFloat(totalPrice) : property.totalPrice;
 
