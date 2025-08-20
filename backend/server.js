@@ -13,8 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Log all incoming requests for debugging
 app.use((req, res, next) => {
+  req.setTimeout(300000); // 5 minutes
   console.log(`Received ${req.method} request to ${req.url}`);
   next();
 });
@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/Uploads', express.static(path.join(process.cwd(), 'Uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Routes
 app.use('/api/property', propertyRoutes);
