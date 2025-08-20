@@ -122,8 +122,8 @@ const EditProperty = () => {
           location: property.location || '',
           totalPrice: property.totalPrice != null ? property.totalPrice.toString() : '',
           description: property.description || '',
-          images: [], // New uploads start empty
-          existingImages: property.images && Array.isArray(property.images) ? property.images : [],
+          images: [],
+          existingImages: property.images && Array.isArray(property.images) ? property.images.map(img => `/uploads/${img.split('/').pop()}`) : [],
           width: property.width != null ? property.width.toString() : '',
           length: property.length != null ? property.length.toString() : '',
           area: property.area != null ? property.area.toString() : '',
@@ -145,7 +145,7 @@ const EditProperty = () => {
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
-    if (name === 'image') {
+    if (name === 'images') {
       const newFiles = Array.from(files).filter(
         (file) => file.type.startsWith('image/') || file.type.startsWith('video/')
       );
@@ -171,7 +171,6 @@ const EditProperty = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
   
-    // Basic validation for required fields
     if (!form.title || !form.location || !form.totalPrice || !form.propertyType) {
       setError('Title, location, total price, and property type are required');
       return;
@@ -182,50 +181,90 @@ const EditProperty = () => {
       return;
     }
   
-    // Create FormData object
-    const formData = new FormData();
-    formData.append('title', form.title || '');
-    formData.append('location', form.location || '');
-    formData.append('totalPrice', form.totalPrice || '');
-    formData.append('description', form.description || '');
-    formData.append('width', form.width || '');
-    formData.append('length', form.length || '');
-    formData.append('area', form.area || '');
-    formData.append('propertyType', form.propertyType || '');
-    formData.append('taluka', form.taluka || '');
-    if (form.propertyType === 'flat') formData.append('bhk', form.bhk || '');
-    if (form.propertyType === 'shop') formData.append('floor', form.floor || '');
+    const hasNewImages = form.images.length > 0;
   
-    // Append existing images as individual entries (if server expects array)
-    if (form.existingImages.length > 0) {
-      form.existingImages.forEach((url, index) => {
-        formData.append(`existingImages[${index}]`, url);
+    if (hasNewImages) {
+      const validMimeTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'video/mp4',
+        'video/mpeg',
+        'video/webm',
+      ];
+      const maxFileSize = 5 * 1024 * 1024; // 5MB
+      const validFiles = form.images.filter(file => {
+        const isValidType = validMimeTypes.includes(file.type);
+        const isValidSize = file.size <= maxFileSize;
+        if (!isValidType) {
+          console.warn(`Invalid file type: ${file.name}, MIME: ${file.type}`);
+          setError(`Invalid file type for ${file.name}. Only JPEG, PNG, GIF, WebP, MP4, MPEG, WebM allowed.`);
+        }
+        if (!isValidSize) {
+          console.warn(`File too large: ${file.name}, Size: ${file.size} bytes`);
+          setError(`File ${file.name} exceeds 5MB limit.`);
+        }
+        return isValidType && isValidSize;
       });
-    }
   
-    // Append new images (optional, using 'images' field name)
-    if (form.images.length > 0) {
-      form.images.forEach((file) => {
-        formData.append('images', file); // Changed from 'image' to 'images'
+      if (validFiles.length === 0) {
+        setError('No valid image or video files selected');
+        return;
+      }
+  
+      const formData = new FormData();
+      formData.append('title', form.title || '');
+      validFiles.forEach((file) => {
+        console.log(`Adding file: ${file.name}, MIME: ${file.type}, Size: ${file.size} bytes`);
+        formData.append('images', file);
       });
-    }
   
-    // Debug FormData contents
-    for (let [key, value] of formData.entries()) {
-      console.log(`FormData entry: ${key}=${value}`);
-    }
+      for (let [key, value] of formData.entries()) {
+        console.log(`FormData entry: ${key}=${value instanceof File ? `${value.name} (File, ${value.type}, ${value.size} bytes)` : value}`);
+      }
   
-    try {
-      const res = await axios.put(`http://localhost:5000/api/property/${id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      toast.success('Property updated successfully');
-      console.log('Update response:', res.data);
-      navigate('/admin/properties');
-    } catch (err) {
-      console.error('Error updating property:', err.response?.data || err.message);
-      setError(`Failed to update property: ${err.response?.data?.error || err.message}`);
-      toast.error(`Failed to update property: ${err.response?.data?.error || err.message}`);
+      try {
+        const res = await axios.put(`http://localhost:5000/api/property/${id}`, formData);
+        toast.success('Property updated successfully');
+        console.log('Update response:', res.data);
+        navigate('/admin/properties');
+      } catch (err) {
+        console.error('Error updating property:', err.response?.data || err.message);
+        const errorMessage = err.response?.data?.error || err.message;
+        setError(`Failed to update property: ${errorMessage}`);
+        toast.error(`Failed to update property: ${errorMessage}`);
+      }
+    } else {
+      const jsonData = {
+        title: form.title || '',
+        location: form.location || '',
+        totalPrice: form.totalPrice || '',
+        description: form.description || '',
+        width: form.width || '',
+        length: form.length || '',
+        area: form.area || '',
+        propertyType: form.propertyType || '',
+        taluka: form.taluka || '',
+        bhk: form.propertyType === 'flat' ? form.bhk || '' : '',
+        floor: form.propertyType === 'shop' ? form.floor || '' : '',
+      };
+  
+      console.log('JSON data:', jsonData);
+  
+      try {
+        const res = await axios.put(`http://localhost:5000/api/property/${id}`, jsonData, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        toast.success('Property updated successfully');
+        console.log('Update response:', res.data);
+        navigate('/admin/properties');
+      } catch (err) {
+        console.error('Error updating property:', err.response?.data || err.message);
+        const errorMessage = err.response?.data?.error || err.message;
+        setError(`Failed to update property: ${errorMessage}`);
+        toast.error(`Failed to update property: ${errorMessage}`);
+      }
     }
   };
 
@@ -266,11 +305,11 @@ const EditProperty = () => {
         {form.propertyType === 'shop' && (
           <Input type="text" name="floor" placeholder="Floor (e.g. Ground, 1st)" value={form.floor} onChange={handleChange} />
         )}
-        <Input type="file" name="image" accept="image/*,video/*" multiple onChange={handleChange} /> {/* Optional */}
+        <Input type="file" name="images" accept="image/*,video/*" multiple onChange={handleChange} />
         {(form.existingImages.length > 0 || form.images.length > 0) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
             {form.existingImages.map((url, i) => {
-              const normalizedUrl = `http://localhost:5000${url.replace(/\/Uploads\//i, '/Uploads/')}`;
+              const normalizedUrl = `http://localhost:5000/uploads/${url.split('/').pop()}`;
               console.log(`Existing image ${i} URL:`, normalizedUrl);
               return (
                 <ImagePreview

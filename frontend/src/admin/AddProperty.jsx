@@ -105,7 +105,7 @@ const AddProperty = () => {
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
-    if (name === 'image') {
+    if (name === 'images') {
       const newFiles = Array.from(files).filter(
         (file) => file.type.startsWith('image/') || file.type.startsWith('video/')
       );
@@ -169,7 +169,7 @@ const AddProperty = () => {
     if (form.propertyType === 'shop') formData.append('floor', form.floor);
 
     images.forEach((file) => {
-      formData.append('image', file);
+      formData.append('images', file);
     });
 
     try {
@@ -246,7 +246,7 @@ const AddProperty = () => {
        
         <Input
           type="file"
-          name="image"
+          name="images"
           multiple
           accept="image/*,video/*"
           onChange={handleChange}
