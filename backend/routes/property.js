@@ -1,47 +1,42 @@
 import express from 'express';
-import { addProperty, getAllProperties, getPropertyById, deleteProperty, updateProperty } from '../controllers/Property.js';
-import path from 'path';
+import { addProperty, getAllProperties, getPropertyById, deleteProperty, updateProperty, upload } from '../controllers/Property.js';
 import multer from 'multer';
-import fs from 'fs';
 
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'Uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const filename = `${Date.now()}${path.extname(file.originalname)}`;
-    console.log(`Multer saving file: ${filename}`); // Debug log
-    cb(null, filename);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    console.log(`Processing file: ${file.originalname}, type: ${file.mimetype}`); // Debug log
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only images and videos are allowed'), false);
-    }
-  },
-});
-
-router.post('/', upload.array('image', 10), addProperty);
+router.post('/', upload, addProperty);
 router.get('/', getAllProperties);
 router.get('/:id', getPropertyById);
 router.delete('/:id', deleteProperty);
 router.put('/:id', (req, res, next) => {
-  console.log('PUT request headers:', req.headers); // Debug log
+  console.log('PUT request received');
+  console.log('PUT request headers:', req.headers);
+  let totalBytes = 0;
+  let firstChunk = true;
+  req.on('data', chunk => {
+    totalBytes += chunk.length;
+    if (firstChunk) {
+      console.log('First chunk sample:', chunk.toString('utf8').substring(0, 200));
+      firstChunk = false;
+    }
+    console.log(`Received chunk: ${chunk.length} bytes, Total: ${totalBytes} bytes`);
+  });
+  req.on('end', () => console.log('Request stream ended'));
+  req.on('error', (err) => {
+    console.error('Request stream error:', err);
+    res.status(400).json({ error: 'Request stream error', details: err.message });
+  });
   if (req.headers['content-type']?.includes('multipart/form-data')) {
-    upload.array('image', 10)(req, res, next);
+    upload(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        console.error('Multer error:', err);
+        return res.status(400).json({ error: 'Image upload failed', details: err.message });
+      } else if (err) {
+        console.error('File validation error:', err);
+        return res.status(400).json({ error: 'Invalid file type', details: err.message });
+      }
+      next();
+    });
   } else {
     next();
   }
