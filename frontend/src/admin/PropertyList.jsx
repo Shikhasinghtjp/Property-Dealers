@@ -189,13 +189,6 @@ const Td = styled.td`
   }
 `;
 
-const Image = styled.img`
-  width: 80px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 0.25rem;
-  border: 1px solid #e5e7eb;
-`;
 
 const ActionButton = styled.button`
   border: none;
@@ -286,6 +279,21 @@ const EmptyMessage = styled.p`
   padding: 1rem;
 `;
 
+const ImageGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 120px; /* table ke hisaab se */
+`;
+
+const Image = styled.img`
+  width: 50px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+`;
+
+
 const PropertyList = () => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -304,7 +312,9 @@ const PropertyList = () => {
         sortPrice: filters.priceSort || undefined,
         propertyType: filters.type || undefined,
       };
-      const res = await axios.get("http://localhost:5000/api/property", { params });
+      const res = await axios.get("http://localhost:5000/api/property", {
+        params,
+      });
       console.log("Fetched properties:", res.data);
       setProperties(res.data);
     } catch (err) {
@@ -344,8 +354,12 @@ const PropertyList = () => {
   };
 
   // Get unique talukas and types from properties for filter options
-  const uniqueTalukas = [...new Set(properties.map((p) => p.taluka).filter(Boolean))];
-  const uniqueTypes = [...new Set(properties.map((p) => p.propertyType).filter(Boolean))];
+  const uniqueTalukas = [
+    ...new Set(properties.map((p) => p.taluka).filter(Boolean)),
+  ];
+  const uniqueTypes = [
+    ...new Set(properties.map((p) => p.propertyType).filter(Boolean)),
+  ];
 
   return (
     <Wrapper>
@@ -373,7 +387,9 @@ const PropertyList = () => {
           </select>
           <select
             value={filters.priceSort}
-            onChange={(e) => setFilters({ ...filters, priceSort: e.target.value })}
+            onChange={(e) =>
+              setFilters({ ...filters, priceSort: e.target.value })
+            }
           >
             <option value="">Sort by Price</option>
             <option value="low">Low to High</option>
@@ -406,7 +422,9 @@ const PropertyList = () => {
               <Th width="5%">BHK</Th>
               <Th width="8%">Area (sqft)</Th>
               <Th width="5%">Floor</Th>
-              <Th width="13%" mobileWidth="20%">Actions</Th>
+              <Th width="13%" mobileWidth="20%">
+                Actions
+              </Th>
             </Tr>
           </Thead>
           <tbody>
@@ -454,15 +472,33 @@ const PropertyList = () => {
                     </Td>
                     <Td>{property.propertyType || "-"}</Td>
                     <Td>
-                      <Image
-                        src={imageUrl}
-                        alt={property.title || "Property"}
-                        onError={(e) =>
-                          (e.target.src =
-                            "https://placehold.co/80x48?text=No+Image")
-                        }
-                      />
+                      {property.images &&
+                      Array.isArray(property.images) &&
+                      property.images.length > 0 ? (
+                        <ImageGrid>
+                          {property.images.map((img, idx) => {
+                            const imageUrl = `http://localhost:5000${img.replace(
+                              /\/uploads\//i,
+                              "/Uploads/"
+                            )}`;
+                            return (
+                              <Image
+                                key={idx}
+                                src={imageUrl}
+                                alt={property.title || "Property"}
+                                onError={(e) =>
+                                  (e.target.src =
+                                    "https://placehold.co/80x48?text=No+Image")
+                                }
+                              />
+                            );
+                          })}
+                        </ImageGrid>
+                      ) : (
+                        "No Images"
+                      )}
                     </Td>
+
                     <Td>{property.bhk || "-"}</Td>
                     <Td>
                       {property.area != null

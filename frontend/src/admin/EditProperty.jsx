@@ -75,12 +75,45 @@ const ErrorMessage = styled.p`
   margin-top: 0.5rem;
 `;
 
+const ImagePreviewContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+`;
+
+const PreviewItem = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
 const ImagePreview = styled.img`
   width: 80px;
   height: 80px;
   object-fit: cover;
   border-radius: 8px;
-  margin-right: 10px;
+`;
+
+const VideoPreview = styled.video`
+  width: 100px;
+  height: 80px;
+  border-radius: 8px;
+`;
+
+const RemoveButton = styled.button`
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 12px;
 `;
 
 const PropertyTypeLabel = styled.h3`
@@ -98,8 +131,8 @@ const EditProperty = () => {
     location: '',
     totalPrice: '',
     description: '',
-    images: [], // For new uploads
-    existingImages: [], // For images from DB
+    images: [], // New files to add (array of File objects)
+    existingImages: [], // Kept existing image paths (array of strings)
     width: '',
     length: '',
     area: '',
@@ -149,7 +182,7 @@ const EditProperty = () => {
       const newFiles = Array.from(files).filter(
         (file) => file.type.startsWith('image/') || file.type.startsWith('video/')
       );
-      setForm({ ...form, images: newFiles });
+      setForm({ ...form, images: [...form.images, ...newFiles] }); // Append to existing new images
     } else {
       const updatedForm = { ...form, [name]: value };
 
@@ -166,6 +199,25 @@ const EditProperty = () => {
       setForm(updatedForm);
       console.log('Form updated:', updatedForm);
     }
+  };
+
+  const removeExistingImage = (index) => {
+    const updatedExisting = form.existingImages.filter((_, i) => i !== index);
+    setForm({ ...form, existingImages: updatedExisting });
+  };
+
+  const removeNewImage = (index) => {
+    const updatedNew = form.images.filter((_, i) => i !== index);
+    setForm({ ...form, images: updatedNew });
+  };
+
+  const isVideoFile = (urlOrFile) => {
+    if (typeof urlOrFile === 'string') {
+      return urlOrFile.endsWith('.mp4') || urlOrFile.endsWith('.webm') || urlOrFile.endsWith('.mpeg');
+    } else if (urlOrFile instanceof File) {
+      return urlOrFile.type.startsWith('video/');
+    }
+    return false;
   };
 
   const handleSubmit = async (e) => {
@@ -197,14 +249,8 @@ const EditProperty = () => {
       const validFiles = form.images.filter(file => {
         const isValidType = validMimeTypes.includes(file.type);
         const isValidSize = file.size <= maxFileSize;
-        if (!isValidType) {
-          console.warn(`Invalid file type: ${file.name}, MIME: ${file.type}`);
-          setError(`Invalid file type for ${file.name}. Only JPEG, PNG, GIF, WebP, MP4, MPEG, WebM allowed.`);
-        }
-        if (!isValidSize) {
-          console.warn(`File too large: ${file.name}, Size: ${file.size} bytes`);
-          setError(`File ${file.name} exceeds 5MB limit.`);
-        }
+        if (!isValidType) setError(`Invalid file type for ${file.name}`);
+        if (!isValidSize) setError(`File ${file.name} exceeds 5MB limit.`);
         return isValidType && isValidSize;
       });
   
@@ -214,23 +260,42 @@ const EditProperty = () => {
       }
   
       const formData = new FormData();
+      // Append all fields
       formData.append('title', form.title || '');
+      formData.append('location', form.location || '');
+      formData.append('totalPrice', form.totalPrice || '');
+      formData.append('description', form.description || '');
+      formData.append('taluka', form.taluka || '');
+      formData.append('width', form.width || '');
+      formData.append('length', form.length || '');
+      formData.append('area', form.area || '');
+      formData.append('propertyType', form.propertyType || '');
+      if (form.propertyType === 'flat') formData.append('bhk', form.bhk || '');
+      if (form.propertyType === 'shop') formData.append('floor', form.floor || '');
+      formData.append('existingImages', JSON.stringify(form.existingImages)); // Send as JSON string
+  
+      // Append valid files
       validFiles.forEach((file) => {
-        console.log(`Adding file: ${file.name}, MIME: ${file.type}, Size: ${file.size} bytes`);
+        console.log(`Appending file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
         formData.append('images', file);
       });
   
+      // Log FormData for debugging
+      console.log('FormData entries:');
       for (let [key, value] of formData.entries()) {
-        console.log(`FormData entry: ${key}=${value instanceof File ? `${value.name} (File, ${value.type}, ${value.size} bytes)` : value}`);
+        console.log(`  ${key}=${value instanceof File ? `${value.name} (${value.type}, ${value.size} bytes)` : value}`);
       }
   
       try {
-        const res = await axios.put(`http://localhost:5000/api/property/${id}`, formData);
+        const res = await axios.put(`http://localhost:5000/api/property/${id}`, formData, {
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        }); // Remove explicit Content-Type to let browser handle boundary
+        console.log('Response:', res.data);
         toast.success('Property updated successfully');
-        console.log('Update response:', res.data);
         navigate('/admin/properties');
       } catch (err) {
-        console.error('Error updating property:', err.response?.data || err.message);
+        console.error('Axios error:', err.response ? err.response.data : err.message);
         const errorMessage = err.response?.data?.error || err.message;
         setError(`Failed to update property: ${errorMessage}`);
         toast.error(`Failed to update property: ${errorMessage}`);
@@ -248,19 +313,17 @@ const EditProperty = () => {
         taluka: form.taluka || '',
         bhk: form.propertyType === 'flat' ? form.bhk || '' : '',
         floor: form.propertyType === 'shop' ? form.floor || '' : '',
+        existingImages: form.existingImages,
       };
-  
-      console.log('JSON data:', jsonData);
   
       try {
         const res = await axios.put(`http://localhost:5000/api/property/${id}`, jsonData, {
           headers: { 'Content-Type': 'application/json' },
         });
+        console.log('Response:', res.data);
         toast.success('Property updated successfully');
-        console.log('Update response:', res.data);
         navigate('/admin/properties');
       } catch (err) {
-        console.error('Error updating property:', err.response?.data || err.message);
         const errorMessage = err.response?.data?.error || err.message;
         setError(`Failed to update property: ${errorMessage}`);
         toast.error(`Failed to update property: ${errorMessage}`);
@@ -306,48 +369,28 @@ const EditProperty = () => {
           <Input type="text" name="floor" placeholder="Floor (e.g. Ground, 1st)" value={form.floor} onChange={handleChange} />
         )}
         <Input type="file" name="images" accept="image/*,video/*" multiple onChange={handleChange} />
-        {(form.existingImages.length > 0 || form.images.length > 0) && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
-            {form.existingImages.map((url, i) => {
-              const normalizedUrl = `http://localhost:5000/uploads/${url.split('/').pop()}`;
-              console.log(`Existing image ${i} URL:`, normalizedUrl);
-              return (
-                <ImagePreview
-                  key={`existing-${i}`}
-                  src={normalizedUrl}
-                  alt={`existing-${i}`}
-                  onError={(e) => {
-                    console.error(`Failed to load existing image: ${normalizedUrl}`);
-                    e.target.src = 'https://placehold.co/80x80?text=No+Image';
-                  }}
-                  onLoad={() => console.log(`Existing image loaded: ${normalizedUrl}`)}
-                />
-              );
-            })}
-            {form.images.map((file, i) => {
-              const url = URL.createObjectURL(file);
-              const isVideo = file.type.startsWith('video/');
-              console.log(`New image/video ${i} preview URL:`, url);
-              return isVideo ? (
-                <video
-                  key={`new-${file.name}-${i}`}
-                  src={url}
-                  width="100"
-                  height="80"
-                  style={{ borderRadius: '8px' }}
-                  controls
-                />
+        <ImagePreviewContainer>
+          {form.existingImages.map((url, i) => (
+            <PreviewItem key={`existing-${i}`}>
+              {isVideoFile(url) ? (
+                <VideoPreview src={`http://localhost:5000${url}`} controls />
               ) : (
-                <ImagePreview
-                  key={`new-${file.name}-${i}`}
-                  src={url}
-                  alt={`preview-${i}`}
-                  onLoad={() => console.log(`New image loaded: ${url}`)}
-                />
-              );
-            })}
-          </div>
-        )}
+                <ImagePreview src={`http://localhost:5000${url}`} alt={`existing-${i}`} />
+              )}
+              <RemoveButton onClick={() => removeExistingImage(i)}>X</RemoveButton>
+            </PreviewItem>
+          ))}
+          {form.images.map((file, i) => (
+            <PreviewItem key={`new-${i}`}>
+              {isVideoFile(file) ? (
+                <VideoPreview src={URL.createObjectURL(file)} controls />
+              ) : (
+                <ImagePreview src={URL.createObjectURL(file)} alt={`new-${i}`} />
+              )}
+              <RemoveButton onClick={() => removeNewImage(i)}>X</RemoveButton>
+            </PreviewItem>
+          ))}
+        </ImagePreviewContainer>
         <ButtonContainer>
           <Button type="submit">Update Property</Button>
           <CancelButton type="button" onClick={handleCancel}>Cancel</CancelButton>
