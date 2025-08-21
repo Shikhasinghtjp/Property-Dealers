@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import styled from "styled-components";
 import { FaBed, FaRulerCombined, FaMapMarkerAlt, FaHeart, FaRegHeart } from "react-icons/fa";
 import { MdPhotoCamera, MdStairs } from "react-icons/md";
@@ -169,9 +169,23 @@ const HomeCard = ({
   const handleClick = () => navigate(`/property/${id}`);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  const imageArray = Array.isArray(images) ? images : images ? [images] : [];
+
+  // Auto change image every 3s
+  useEffect(() => {
+    if (imageArray.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prev) => (prev + 1) % imageArray.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [imageArray.length]);
   // Debugging log
   console.log("HomeCard props:", { id, propertyType });
+  console.log("Image array:", imageArray);
+
 
   const displayType = propertyType && typeof propertyType === "string" 
     ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) 
@@ -185,14 +199,23 @@ const HomeCard = ({
       transition={{ duration: 0.5, ease: "easeOut" }}
       onClick={handleClick}
     >
-      <ImageWrapper>
-        <PropertyImage 
-          src={images ? `http://localhost:5000${images}` : "https://placehold.co/360x200?text=No+Image"} 
-          alt={title || "Property"} 
-        />
+     <ImageWrapper>
+        {imageArray.length > 0 ? (
+          <PropertyImage
+            key={currentImageIndex}
+            src={`http://localhost:5000${imageArray[currentImageIndex]}`}
+            alt={title || "Property"}
+          />
+        ) : (
+          <PropertyImage
+            src="https://placehold.co/360x200?text=No+Image"
+            alt="No property"
+          />
+        )}
         <Overlay />
         <Tag>
-          <MdPhotoCamera style={{ marginRight: "4px" }} /> 1
+          <MdPhotoCamera style={{ marginRight: "4px" }} />
+          {imageArray.length}
         </Tag>
         <ForSaleTag>{displayType}</ForSaleTag>
       </ImageWrapper>
@@ -244,7 +267,7 @@ export const HomeCardGrid = ({ properties }) => {
               bhk={property.bhk}
               area={property.area}
               floor={property.floor}
-              propertyType={property.propertyType}
+              propertyType={property.propertyType?.toUpperCase()}
               taluka={property.taluka}
               price={property.totalPrice}
             />
