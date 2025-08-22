@@ -131,8 +131,8 @@ const EditProperty = () => {
     location: '',
     totalPrice: '',
     description: '',
-    images: [], // New files to add (array of File objects)
-    existingImages: [], // Kept existing image paths (array of strings)
+    images: [], 
+    existingImages: [], 
     width: '',
     length: '',
     area: '',
@@ -197,7 +197,6 @@ const EditProperty = () => {
       }
 
       setForm(updatedForm);
-      console.log('Form updated:', updatedForm);
     }
   };
 
@@ -276,15 +275,10 @@ const EditProperty = () => {
   
       // Append valid files
       validFiles.forEach((file) => {
-        console.log(`Appending file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
         formData.append('images', file);
       });
   
-      // Log FormData for debugging
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}=${value instanceof File ? `${value.name} (${value.type}, ${value.size} bytes)` : value}`);
-      }
+       
   
       try {
         const res = await axios.put(`http://localhost:5000/api/property/${id}`, formData, {
