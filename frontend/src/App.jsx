@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import axios from "axios";
 import Navbar from "./components/Navbar";
@@ -7,7 +7,6 @@ import Hero from "./components/Hero";
 import { HomeCardGrid } from "./components/HomeCard";
 import PropertyDetails from "./components/PropertyDetails";
 import Footer from "./components/Footer";
-import CategorySection from "./components/CategorySection";
 import Contact from "./components/ContactUs";
 import ContactModal from "./components/ContactModal";
 import WhyChooseUs from "./components/WhyChooseUs";
@@ -67,21 +66,8 @@ const App = () => {
         // Normalize and merge
         const normalizedAdmin = adminProperties.map(prop => ({
           id: prop.id,
-          images: prop.images && Array.isArray(prop.images) && prop.images.length > 0 ? prop.images[0] : null,
+          images: Array.isArray(prop.images) ? prop.images : [], // Full images array
           title: prop.title,
-          location: prop.location,
-          bhk: prop.bhk,
-          area: prop.area,
-          floor: prop.floor,
-          propertyType: prop.type, // Admin uses type, HomeCard expects propertyType
-          taluka: prop.taluka,
-          totalPrice: prop.totalPrice,
-        }));
-
-        const normalizedSeller = sellerProperties.map(prop => ({
-          id: prop.id,
-          images: prop.images && Array.isArray(prop.images) && prop.images.length > 0 ? prop.images[0] : null,
-          title: prop.title || prop.name, // Seller uses name, fallback to title
           location: prop.location,
           bhk: prop.bhk,
           area: prop.area,
@@ -89,14 +75,33 @@ const App = () => {
           propertyType: prop.propertyType,
           taluka: prop.taluka,
           totalPrice: prop.totalPrice,
+          sellerId: prop.broker_id || null, // Use broker_id for Property
+          isSeller: false,
+        }));
+
+        const normalizedSeller = sellerProperties.map(prop => ({
+          id: prop.id,
+          images: Array.isArray(prop.images) ? prop.images : [], // Full images array
+          title: prop.title || prop.name,
+          location: prop.location,
+          bhk: prop.bhk,
+          area: prop.area,
+          floor: prop.floor,
+          propertyType: prop.propertyType,
+          taluka: prop.taluka,
+          totalPrice: prop.totalPrice,
+          sellerId: null, // Seller records don't need sellerId
+          isSeller: true,
         }));
 
         // Merge both arrays
         const allProperties = [...normalizedAdmin, ...normalizedSeller];
+        console.log("Merged Properties:", allProperties);
         setProperties(allProperties);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching properties:", error);
+        setProperties([]);
         setLoading(false);
       }
     };
@@ -300,8 +305,6 @@ const App = () => {
                   <HomeCardGrid properties={filteredProperties} />
                 </div>
               )}
-
-              {/*<CategorySection />*/}
             </>
           }
         />
@@ -331,8 +334,6 @@ const App = () => {
           <Route path="buyer" element={<BuyerList />} />
           <Route path="seller" element={<SellerList />} />
           <Route path="messages" element={<AdminMessages />} />
-          {/* <Route path="edit-message/:id" element={<EditMessage />} /> */}
-          {/* <Route path="settings" element={<AdminSettings />} /> */}
         </Route>
       </Routes>
       <ToastContainer />
