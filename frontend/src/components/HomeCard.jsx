@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import styled from "styled-components";
-import { FaBed, FaRulerCombined, FaMapMarkerAlt, FaHeart, FaRegHeart } from "react-icons/fa";
+import { FaBed, FaRulerCombined, FaMapMarkerAlt } from "react-icons/fa";
 import { MdPhotoCamera, MdStairs } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
@@ -129,7 +129,7 @@ const InfoRow = styled.div`
   font-size: 14px;
   color: #374151;
   margin-bottom: 12px;
-  justify-content: ${({ propertyType }) => (propertyType === "flat" || propertyType === "shop" ? "space-between" : "flex-start")};
+  justify-content: ${({ propertyType }) => (propertyType === "Flat" || propertyType === "Shop" ? "space-between" : "flex-start")};
 
   div {
     display: flex;
@@ -146,16 +146,9 @@ const PriceRow = styled.div`
   align-items: center;
 `;
 
-const FavoriteButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: inherit;
-`;
-
 const HomeCard = ({
   id,
-  images,
+  sellerId,
   title,
   location,
   bhk,
@@ -164,28 +157,100 @@ const HomeCard = ({
   propertyType,
   taluka,
   price,
+  images: propImages, // Fallback images from props
+  isSeller, // Indicates if this is a Seller record
 }) => {
   const navigate = useNavigate();
   const handleClick = () => navigate(`/property/${id}`);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const imageArray = Array.isArray(images) ? images : images ? [images] : [];
+  // Fetch images based on whether it's a Seller or Property card
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        setLoading(true);
+        let fetchedImages = [];
+
+        if (isSeller) {
+          // Fetch Seller data
+          const sellerResponse = await fetch(`http://localhost:5000/api/seller/${id}`);
+          if (!sellerResponse.ok) {
+            console.warn(`Seller API failed: ${sellerResponse.status} ${sellerResponse.statusText}`);
+          } else {
+            const sellerData = await sellerResponse.json();
+            console.log("Seller API response:", sellerData);
+            fetchedImages = Array.isArray(sellerData.images)
+              ? sellerData.images.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
+              : [];
+          }
+        } else {
+          // Fetch Property data
+          const propertyResponse = await fetch(`http://localhost:5000/api/property/${id}`);
+          if (!propertyResponse.ok) {
+            console.warn(`Property API failed: ${propertyResponse.status} ${propertyResponse.statusText}`);
+          } else {
+            const propertyData = await propertyResponse.json();
+            console.log("Property API response:", propertyData);
+            fetchedImages = Array.isArray(propertyData.images)
+              ? propertyData.images.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
+              : [];
+          }
+
+          // Fetch Seller images if sellerId (broker_id) is provided
+          if (sellerId) {
+            const sellerResponse = await fetch(`http://localhost:5000/api/seller/${sellerId}`);
+            if (!sellerResponse.ok) {
+              console.warn(`Seller API failed for sellerId: ${sellerResponse.status} ${sellerResponse.statusText}`);
+            } else {
+              const sellerData = await sellerResponse.json();
+              console.log("Seller API response (for Property):", sellerData);
+              const sellerImages = Array.isArray(sellerData.images)
+                ? sellerData.images.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
+                : [];
+              fetchedImages = [...new Set([...fetchedImages, ...sellerImages])];
+            }
+          }
+        }
+
+        // Use fetched images or fallback to propImages
+        setImages(fetchedImages.length > 0 ? fetchedImages : Array.isArray(propImages) ? propImages.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) : []);
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setError(`Failed to fetch images: ${err.message}`);
+        setImages(Array.isArray(propImages) ? propImages.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) : []);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchImages();
+    } else {
+      console.error("Missing ID for card");
+      setError("Missing ID");
+      setImages(Array.isArray(propImages) ? propImages.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) : []);
+      setLoading(false);
+    }
+  }, [id, sellerId, isSeller, propImages]);
 
   // Auto change image every 3s
   useEffect(() => {
-    if (imageArray.length > 1) {
+    if (images.length > 1) {
       const interval = setInterval(() => {
-        setCurrentImageIndex((prev) => (prev + 1) % imageArray.length);
+        setCurrentImageIndex((prev) => (prev + 1) % images.length);
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [imageArray.length]);
-  // Debugging log
-  console.log("HomeCard props:", { id, propertyType });
-  console.log("Image array:", imageArray);
+  }, [images.length]);
 
+  // Debugging log
+  console.log("HomeCard props:", { id, sellerId, isSeller, propertyType, propImages });
+  console.log("Combined images:", images);
 
   const displayType = propertyType && typeof propertyType === "string" 
     ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) 
@@ -199,12 +264,26 @@ const HomeCard = ({
       transition={{ duration: 0.5, ease: "easeOut" }}
       onClick={handleClick}
     >
-     <ImageWrapper>
-        {imageArray.length > 0 ? (
+      <ImageWrapper>
+        {loading ? (
+          <PropertyImage
+            src="https://placehold.co/360x200?text=Loading..."
+            alt="Loading"
+          />
+        ) : error ? (
+          <PropertyImage
+            src="https://placehold.co/360x200?text=Error+Loading+Images"
+            alt="Error"
+          />
+        ) : images.length > 0 ? (
           <PropertyImage
             key={currentImageIndex}
-            src={`http://localhost:5000${imageArray[currentImageIndex]}`}
+            src={`http://localhost:5000${images[currentImageIndex]}`}
             alt={title || "Property"}
+            onError={(e) => {
+              console.error("Image load error:", images[currentImageIndex]);
+              e.target.src = "https://placehold.co/360x200?text=Image+Not+Found";
+            }}
           />
         ) : (
           <PropertyImage
@@ -215,7 +294,7 @@ const HomeCard = ({
         <Overlay />
         <Tag>
           <MdPhotoCamera style={{ marginRight: "4px" }} />
-          {imageArray.length}
+          {loading ? "..." : images.length}
         </Tag>
         <ForSaleTag>{displayType}</ForSaleTag>
       </ImageWrapper>
@@ -227,17 +306,17 @@ const HomeCard = ({
         </Location>
 
         <InfoRow propertyType={propertyType}>
-          {propertyType === "flat" && bhk && bhk !== "" && (
+          {propertyType === "Flat" && bhk && bhk !== "" && (
             <div>
               <FaBed /> {bhk} 
             </div>
           )}
-          {propertyType === "shop" && floor && floor !== "" && (
+          {propertyType === "Shop" && floor && floor !== "" && (
             <div>
               <MdStairs /> Floor {floor}
             </div>
           )}
-          {(propertyType === "farm" || propertyType === "land" || area) && (
+          {(propertyType === "Farm" || propertyType === "Land" || area) && (
             <div>
               <FaRulerCombined /> {area ? `${area} sqft` : "N/A"}
             </div>
@@ -261,15 +340,17 @@ export const HomeCardGrid = ({ properties }) => {
             <HomeCard
               key={property.id}
               id={property.id}
-              images={property.images}
+              sellerId={property.sellerId}
               title={property.title}
               location={property.location}
               bhk={property.bhk}
               area={property.area}
               floor={property.floor}
-              propertyType={property.propertyType?.toUpperCase()}
+              propertyType={property.propertyType}
               taluka={property.taluka}
               price={property.totalPrice}
+              images={property.images}
+              isSeller={property.isSeller || false}
             />
           ))
         ) : (
