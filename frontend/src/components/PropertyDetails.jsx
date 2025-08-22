@@ -17,6 +17,10 @@ const PageTitle = styled.h1`
   margin-bottom: 30px;
   font-size: 2.5rem;
   color: #1f2937;
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
 `;
 
 const BackButton = styled.button`
@@ -30,11 +34,75 @@ const BackButton = styled.button`
   cursor: pointer;
 `;
 
-const Image = styled.img`
-  width: 100%;
+const MediaWrapper = styled.div`
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+`;
+
+const MainMediaContainer = styled.div`
+  flex: 3;
   height: 420px;
-  object-fit: cover;
+  overflow: hidden;
   border-radius: 12px;
+
+  @media (max-width: 768px) {
+    height: 300px;
+  }
+
+  @media (max-width: 480px) {
+    height: 200px;
+  }
+`;
+
+const MainMedia = styled.div`
+  width: 100%;
+  height: 100%;
+`;
+
+const ThumbnailContainer = styled.div`
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  justify-items: center;
+  padding: 10px;
+
+  @media (max-width: 768px) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+`;
+
+const Thumbnail = styled.div`
+  width: 120px;
+  height: 67.5px; /* 16:9 aspect ratio */
+  aspect-ratio: 16 / 9;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  @media (max-width: 768px) {
+    width: 80px;
+    height: 45px;
+  }
+
+  @media (max-width: 480px) {
+    width: 60px;
+    height: 34px;
+  }
 `;
 
 const Info = styled.div`
@@ -43,10 +111,20 @@ const Info = styled.div`
 
 const Title = styled.h2`
   margin-bottom: 10px;
+  font-size: 1.8rem;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const Text = styled.p`
   margin: 6px 0;
+  font-size: 1rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const Section = styled.div`
@@ -86,12 +164,20 @@ const CardGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -142,6 +228,7 @@ const PropertyDetails = () => {
   const [showBuyerModal, setShowBuyerModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentMainIndex, setCurrentMainIndex] = useState(0);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -179,7 +266,7 @@ const PropertyDetails = () => {
         // Normalize property data
         const normalizedProperty = {
           id: propertyData.id,
-          images: propertyData.images && Array.isArray(propertyData.images) && propertyData.images.length > 0 ? propertyData.images[0] : null,
+          images: Array.isArray(propertyData.images) ? propertyData.images : [],
           title: propertyData.title || (source === "seller" ? propertyData.name : "Untitled"),
           location: propertyData.location || "Unknown Location",
           taluka: propertyData.taluka || "N/A",
@@ -187,7 +274,7 @@ const PropertyDetails = () => {
           area: propertyData.area || null,
           floor: propertyData.floor || null,
           totalPrice: propertyData.totalPrice || null,
-          propertyType: (source === "admin" ? propertyData.propertyType : propertyData.propertyType) || "Unknown",
+          propertyType: propertyData.propertyType || "Unknown",
           description: propertyData.description || "N/A",
           source,
         };
@@ -208,7 +295,7 @@ const PropertyDetails = () => {
         // Normalize admin properties
         const normalizedAdmin = adminProperties.map(prop => ({
           id: prop.id,
-          images: prop.images && Array.isArray(prop.images) && prop.images.length > 0 ? prop.images[0] : null,
+          images: Array.isArray(prop.images) ? prop.images : [],
           title: prop.title || "Untitled",
           location: prop.location || "Unknown Location",
           bhk: prop.bhk || null,
@@ -217,12 +304,14 @@ const PropertyDetails = () => {
           propertyType: prop.propertyType || "Unknown",
           taluka: prop.taluka || "N/A",
           totalPrice: prop.totalPrice || null,
+          sellerId: prop.broker_id || null,
+          isSeller: false,
         }));
 
         // Normalize seller properties
         const normalizedSeller = sellerProperties.map(prop => ({
           id: prop.id,
-          images: prop.images && Array.isArray(prop.images) && prop.images.length > 0 ? prop.images[0] : null,
+          images: Array.isArray(prop.images) ? prop.images : [],
           title: prop.title || prop.name || "Untitled",
           location: prop.location || "Unknown Location",
           bhk: prop.bhk || null,
@@ -231,6 +320,8 @@ const PropertyDetails = () => {
           propertyType: prop.propertyType || "Unknown",
           taluka: prop.taluka || "N/A",
           totalPrice: prop.totalPrice || null,
+          sellerId: null,
+          isSeller: true,
         }));
 
         // Merge and filter related properties
@@ -238,10 +329,10 @@ const PropertyDetails = () => {
         console.log("All Properties:", allProperties);
 
         const relatedProperties = allProperties.filter(
-          (p) => 
-            p.propertyType && 
-            normalizedProperty.propertyType && 
-            p.propertyType.toLowerCase() === normalizedProperty.propertyType.toLowerCase() && 
+          (p) =>
+            p.propertyType &&
+            normalizedProperty.propertyType &&
+            p.propertyType.toLowerCase() === normalizedProperty.propertyType.toLowerCase() &&
             p.id !== parseInt(id)
         );
         console.log("Related Properties:", relatedProperties);
@@ -258,22 +349,64 @@ const PropertyDetails = () => {
     fetchProperty();
   }, [id]);
 
+  // Auto change main media every 3s
+  useEffect(() => {
+    if (property && property.images.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentMainIndex((prev) => (prev + 1) % property.images.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [property]);
+
+  const handleThumbnailClick = (index) => {
+    setCurrentMainIndex(index);
+  };
+
   if (loading) return <Container>Loading...</Container>;
   if (error) return <Container>{error}</Container>;
   if (!property) return <Container>Property not found.</Container>;
+
+  const allMedia = property.images.filter((media) => !/\.(mp4|mpeg|webm|mov|avi)$/i.test(media));
+  const mainMedia = allMedia[currentMainIndex] || "https://placehold.co/360x200?text=No+Image";
 
   return (
     <Container>
       <PageTitle>Property Details</PageTitle>
       <BackButton onClick={() => navigate(-1)}>← Back</BackButton>
-      <Image 
-        src={property.images ? `http://localhost:5000${property.images}` : "https://placehold.co/360x200?text=No+Image"} 
-        alt={property.title || "Property"} 
-        onError={(e) => {
-          console.error(`Failed to load image: http://localhost:5000${property.images}`);
-          e.target.src = "https://placehold.co/360x200?text=No+Image";
-        }}
-      />
+      <MediaWrapper>
+        <MainMediaContainer>
+          <MainMedia>
+            <img
+              src={`http://localhost:5000${mainMedia}`}
+              alt={property.title || "Property"}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              onError={(e) => {
+                console.error(`Failed to load media: http://localhost:5000${mainMedia}`);
+                e.target.src = "https://placehold.co/360x200?text=No+Image";
+              }}
+            />
+          </MainMedia>
+        </MainMediaContainer>
+        <ThumbnailContainer>
+          {allMedia.map((media, index) => (
+            <Thumbnail
+              key={index}
+              onClick={() => handleThumbnailClick(index)}
+            >
+              <img
+                src={`http://localhost:5000${media}`}
+                alt="Thumbnail"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  console.error(`Failed to load thumbnail: http://localhost:5000${media}`);
+                  e.target.src = "https://placehold.co/120x67.5?text=No+Image";
+                }}
+              />
+            </Thumbnail>
+          ))}
+        </ThumbnailContainer>
+      </MediaWrapper>
       <Info>
         <Title>{property.title}</Title>
         <Text><strong>Location:</strong> {property.location}</Text>
@@ -292,7 +425,7 @@ const PropertyDetails = () => {
 
       <Section>
         <BuyNowButton onClick={() => setShowBuyerModal(true)}>
-          Enquire Now 
+          Enquire Now
         </BuyNowButton>
       </Section>
 
@@ -313,6 +446,8 @@ const PropertyDetails = () => {
                 propertyType={p.propertyType}
                 taluka={p.taluka}
                 price={p.totalPrice}
+                sellerId={p.sellerId}
+                isSeller={p.isSeller}
               />
             ))}
           </CardGrid>
