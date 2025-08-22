@@ -47,4 +47,14 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.get("/count", async (req, res) => {
+  try {
+    const count = await Buyer.count();  // agar sequelize hai
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 export default router;

@@ -32,10 +32,15 @@ const Broker = sequelize.define('Broker', {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-  status: {
-    type: DataTypes.ENUM('Active', 'Inactive'),
+  Status: {
+    type: DataTypes.ENUM('Active', 'Inactive', 'Contacted', 'NotContacted', 'Unreachable'),
     allowNull: false,
-    defaultValue: 'Active',
+    defaultValue: 'NotContacted',
+  },
+  Followup: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    defaultValue: null, 
   },
 }, {
   tableName: 'Broker',

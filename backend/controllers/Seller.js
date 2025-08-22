@@ -2,11 +2,7 @@ import Seller from '../models/Seller.js';
 
 export const createSellerProperty = async (req, res) => {
   try {
-    console.log("Received POST /api/seller request");
-    console.log("Files uploaded:", req.files);
-    console.log("Raw Body:", req.body);
-
-    // Validate required fields
+       // Validate required fields
     const requiredFields = ['name', 'phone', 'location', 'propertyType'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     if (missingFields.length > 0) {
@@ -26,7 +22,7 @@ export const createSellerProperty = async (req, res) => {
         return res.status(400).json({ message: 'Invalid file types. Only images (jpg, jpeg, png, gif) and videos (mp4, mov, avi) are allowed.' });
       }
     }
-
+    
     // Construct property data with explicit type conversion and validation
     const propertyData = {
       name: req.body.name,

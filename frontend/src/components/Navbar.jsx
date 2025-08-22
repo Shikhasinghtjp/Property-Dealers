@@ -543,9 +543,9 @@ const Navbar = ({ setSelectedTaluka, scrollToCardGrid }) => {
               </li>
             </DropdownMenu>
           </NavItem>
-          <NavItem scrolled={scrolled}>
+          {/* <NavItem scrolled={scrolled}>
             <a href="#">Sold Out</a>
-          </NavItem>
+          </NavItem> */}
         </NavLinks>
       </NavbarContainer>
 
