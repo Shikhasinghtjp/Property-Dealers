@@ -240,22 +240,34 @@ const PropertyDetails = () => {
         // Try fetching from admin properties first
         try {
           console.log(`Fetching admin property with ID: ${id}`);
-          const adminResponse = await axios.get(`http://localhost:5000/api/property/${id}`);
+          const adminResponse = await axios.get(
+            `http://localhost:5000/api/property/${id}`
+          );
           console.log("Admin Property Response:", adminResponse.data);
           propertyData = adminResponse.data;
           source = "admin";
         } catch (adminError) {
-          console.log(`Admin property not found for ID ${id}:`, adminError.message);
+          console.log(
+            `Admin property not found for ID ${id}:`,
+            adminError.message
+          );
           // Try seller property
           try {
             console.log(`Fetching seller property with ID: ${id}`);
-            const sellerResponse = await axios.get(`http://localhost:5000/api/seller/${id}`);
+            const sellerResponse = await axios.get(
+              `http://localhost:5000/api/seller/${id}`
+            );
             console.log("Seller Property Response:", sellerResponse.data);
             propertyData = sellerResponse.data;
             source = "seller";
           } catch (sellerError) {
-            console.error(`Seller property not found for ID ${id}:`, sellerError.message);
-            throw new Error(`Property not found for ID ${id} in either admin or seller data.`);
+            console.error(
+              `Seller property not found for ID ${id}:`,
+              sellerError.message
+            );
+            throw new Error(
+              `Property not found for ID ${id} in either admin or seller data.`
+            );
           }
         }
 
@@ -267,7 +279,9 @@ const PropertyDetails = () => {
         const normalizedProperty = {
           id: propertyData.id,
           images: Array.isArray(propertyData.images) ? propertyData.images : [],
-          title: propertyData.title || (source === "seller" ? propertyData.name : "Untitled"),
+          title:
+            propertyData.title ||
+            (source === "seller" ? propertyData.name : "Untitled"),
           location: propertyData.location || "Unknown Location",
           taluka: propertyData.taluka || "N/A",
           bhk: propertyData.bhk || null,
@@ -283,17 +297,25 @@ const PropertyDetails = () => {
         setProperty(normalizedProperty);
 
         // Fetch related properties
-        const adminPropertiesResponse = await axios.get("http://localhost:5000/api/property");
-        const sellerPropertiesResponse = await axios.get("http://localhost:5000/api/seller/accepted");
+        const adminPropertiesResponse = await axios.get(
+          "http://localhost:5000/api/property"
+        );
+        const sellerPropertiesResponse = await axios.get(
+          "http://localhost:5000/api/seller/accepted"
+        );
 
-        const adminProperties = Array.isArray(adminPropertiesResponse.data) ? adminPropertiesResponse.data : [];
-        const sellerProperties = Array.isArray(sellerPropertiesResponse.data) ? sellerPropertiesResponse.data : [];
+        const adminProperties = Array.isArray(adminPropertiesResponse.data)
+          ? adminPropertiesResponse.data
+          : [];
+        const sellerProperties = Array.isArray(sellerPropertiesResponse.data)
+          ? sellerPropertiesResponse.data
+          : [];
 
         console.log("Admin Properties:", adminProperties);
         console.log("Seller Properties:", sellerProperties);
 
         // Normalize admin properties
-        const normalizedAdmin = adminProperties.map(prop => ({
+        const normalizedAdmin = adminProperties.map((prop) => ({
           id: prop.id,
           images: Array.isArray(prop.images) ? prop.images : [],
           title: prop.title || "Untitled",
@@ -309,7 +331,7 @@ const PropertyDetails = () => {
         }));
 
         // Normalize seller properties
-        const normalizedSeller = sellerProperties.map(prop => ({
+        const normalizedSeller = sellerProperties.map((prop) => ({
           id: prop.id,
           images: Array.isArray(prop.images) ? prop.images : [],
           title: prop.title || prop.name || "Untitled",
@@ -332,7 +354,8 @@ const PropertyDetails = () => {
           (p) =>
             p.propertyType &&
             normalizedProperty.propertyType &&
-            p.propertyType.toLowerCase() === normalizedProperty.propertyType.toLowerCase() &&
+            p.propertyType.toLowerCase() ===
+              normalizedProperty.propertyType.toLowerCase() &&
             p.id !== parseInt(id)
         );
         console.log("Related Properties:", relatedProperties);
@@ -341,8 +364,12 @@ const PropertyDetails = () => {
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error.message);
-        setError(`Failed to load property details for ID ${id}. Please try again later.`);
-        toast.error(`Failed to load property details for ID ${id}. Please try again later.`);
+        setError(
+          `Failed to load property details for ID ${id}. Please try again later.`
+        );
+        toast.error(
+          `Failed to load property details for ID ${id}. Please try again later.`
+        );
         setLoading(false);
       }
     };
@@ -367,8 +394,7 @@ const PropertyDetails = () => {
   if (error) return <Container>{error}</Container>;
   if (!property) return <Container>Property not found.</Container>;
 
-  const allMedia = property.images.filter((media) => !/\.(mp4|mpeg|webm|mov|avi)$/i.test(media));
-  const mainMedia = allMedia[currentMainIndex] || "https://placehold.co/360x200?text=No+Image";
+  const allMedia = property.images || [];
 
   return (
     <Container>
@@ -377,29 +403,46 @@ const PropertyDetails = () => {
       <MediaWrapper>
         <MainMediaContainer>
           <MainMedia>
-            <img
-              src={`http://localhost:5000${mainMedia}`}
-              alt={property.title || "Property"}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              onError={(e) => {
-                console.error(`Failed to load media: http://localhost:5000${mainMedia}`);
-                e.target.src = "https://placehold.co/360x200?text=No+Image";
-              }}
-            />
+            {/\.(mp4|webm|ogg|mov|avi)$/i.test(allMedia[currentMainIndex]) ? (
+              <video
+                src={`http://localhost:5000${allMedia[currentMainIndex]}`}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                controls
+                autoPlay
+                muted
+                loop
+                onError={() => {
+                  console.error(
+                    `Failed to load video: http://localhost:5000${allMedia[currentMainIndex]}`
+                  );
+                }}
+              />
+            ) : (
+              <img
+                src={`http://localhost:5000${allMedia[currentMainIndex]}`}
+                alt={property.title || "Property"}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  console.error(
+                    `Failed to load image: http://localhost:5000${allMedia[currentMainIndex]}`
+                  );
+                  e.target.src = "https://placehold.co/360x200?text=No+Image";
+                }}
+              />
+            )}
           </MainMedia>
         </MainMediaContainer>
         <ThumbnailContainer>
           {allMedia.map((media, index) => (
-            <Thumbnail
-              key={index}
-              onClick={() => handleThumbnailClick(index)}
-            >
+            <Thumbnail key={index} onClick={() => handleThumbnailClick(index)}>
               <img
                 src={`http://localhost:5000${media}`}
                 alt="Thumbnail"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 onError={(e) => {
-                  console.error(`Failed to load thumbnail: http://localhost:5000${media}`);
+                  console.error(
+                    `Failed to load thumbnail: http://localhost:5000${media}`
+                  );
                   e.target.src = "https://placehold.co/120x67.5?text=No+Image";
                 }}
               />
@@ -409,18 +452,40 @@ const PropertyDetails = () => {
       </MediaWrapper>
       <Info>
         <Title>{property.title}</Title>
-        <Text><strong>Location:</strong> {property.location}</Text>
-        <Text><strong>Taluka:</strong> {property.taluka}</Text>
+        <Text>
+          <strong>Location:</strong> {property.location}
+        </Text>
+        <Text>
+          <strong>Taluka:</strong> {property.taluka}
+        </Text>
         {property.propertyType === "flat" && property.bhk && (
-          <Text><strong>Bedrooms:</strong> {property.bhk}</Text>
+          <Text>
+            <strong>Bedrooms:</strong> {property.bhk}
+          </Text>
         )}
         {property.propertyType === "shop" && property.floor && (
-          <Text><strong>Floor:</strong> {property.floor}</Text>
+          <Text>
+            <strong>Floor:</strong> {property.floor}
+          </Text>
         )}
-        <Text><strong>Area:</strong> {property.area ? `${property.area} sqft` : "N/A"}</Text>
-        <Text><strong>Price:</strong> ₹{property.totalPrice ? property.totalPrice.toLocaleString("en-IN") : "N/A"}</Text>
-        <Text><strong>Type:</strong> {property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)}</Text>
-        <Text><strong>Description:</strong> {property.description}</Text>
+        <Text>
+          <strong>Area:</strong>{" "}
+          {property.area ? `${property.area} sqft` : "N/A"}
+        </Text>
+        <Text>
+          <strong>Price:</strong> ₹
+          {property.totalPrice
+            ? property.totalPrice.toLocaleString("en-IN")
+            : "N/A"}
+        </Text>
+        <Text>
+          <strong>Type:</strong>{" "}
+          {property.propertyType.charAt(0).toUpperCase() +
+            property.propertyType.slice(1)}
+        </Text>
+        <Text>
+          <strong>Description:</strong> {property.description}
+        </Text>
       </Info>
 
       <Section>
@@ -458,11 +523,13 @@ const PropertyDetails = () => {
         <ModalOverlay>
           <Modal>
             <CloseBtn onClick={() => setShowModal(false)}>×</CloseBtn>
-            <Form onSubmit={(e) => {
-              e.preventDefault();
-              toast.success("Message sent to agent!");
-              setShowModal(false);
-            }}>
+            <Form
+              onSubmit={(e) => {
+                e.preventDefault();
+                toast.success("Message sent to agent!");
+                setShowModal(false);
+              }}
+            >
               <Input type="text" placeholder="Your Name" required />
               <Input type="email" placeholder="Your Email" required />
               <SubmitButton type="submit">Send Message</SubmitButton>
