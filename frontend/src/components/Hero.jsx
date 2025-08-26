@@ -59,11 +59,12 @@ const DiagonalOverlay = styled.div`
   clip-path: polygon(0 0, 100% 0, 80% 100%, 0% 100%);
   z-index: 1;
 
-  @media (max-width: 768px) {
+  /* Tablet & below → full width overlay */
+  @media (max-width: 1024px) {
     width: 100%;
     clip-path: none;
   }
-`
+`;
 
 const Content = styled(motion.div)`
   position: relative;
@@ -76,12 +77,18 @@ const Content = styled(motion.div)`
   flex-direction: column;
   justify-content: center;
 
+  @media (max-width: 1024px) {
+    max-width: 90%;   /* prevent overflow */
+    margin: 0 auto;   /* center horizontally */
+    text-align: center;
+    align-items: center;
+  }
+
   @media (max-width: 768px) {
     padding: 1.5rem;
-    align-items: center;
-    text-align: center;
   }
-`
+`;
+
 
 const LogoCircle = styled.div`
   background: white;
