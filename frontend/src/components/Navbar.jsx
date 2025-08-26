@@ -442,7 +442,7 @@ const Navbar = ({ setSelectedTaluka, scrollToCardGrid }) => {
               scrolled={scrolled}
               style={{ display: talukaOpen ? "block" : "none" }}
             >
-              {[
+              {[ "All",
                 "Arni",
                 "Umarkhed",
                 "Kalamb",
@@ -460,7 +460,7 @@ const Navbar = ({ setSelectedTaluka, scrollToCardGrid }) => {
                 "Ralegaon",
                 "Wani",
               ].map((taluka) => (
-                <li key={taluka} onClick={() => handleTalukaSelect(taluka)}>
+                <li key={taluka} onClick={() =>taluka === "All" ? setSelectedTaluka(null) : handleTalukaSelect(taluka)}>
                   {taluka}
                 </li>
               ))}
