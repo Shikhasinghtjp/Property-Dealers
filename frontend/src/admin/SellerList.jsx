@@ -688,19 +688,34 @@ const SellerList = () => {
                       : (seller.status === 'Unreachable' || seller.status === 'Not Contacted') ? 'No Visit' : 'N/A'}
                   </TableCell>
                   <TableCell>
-                    {seller.images && seller.images.length > 0 ? (
-                      <ImageGrid>
-                        {seller.images.map((img, idx) => (
-                          <Image
-                            key={idx}
-                            src={`http://localhost:5000${img}`}
-                            alt={`Property ${seller.name}`}
-                          />
-                        ))}
-                      </ImageGrid>
-                    ) : (
-                      'No Images'
-                    )}
+                  {seller.images && seller.images.length > 0 ? (
+  <ImageGrid>
+    {seller.images.map((file, idx) => {
+      const fileUrl = `http://localhost:5000${file}`;
+      const isVideo = file.endsWith(".mp4") || file.endsWith(".webm") || file.endsWith(".ogg");
+
+      return isVideo ? (
+        <video
+          key={idx}
+          src={fileUrl}
+          width="100"
+          height="80"
+          style={{ borderRadius: "8px" }}
+          controls
+        />
+      ) : (
+        <Image
+          key={idx}
+          src={fileUrl}
+          alt={`Property ${seller.name}`}
+        />
+      );
+    })}
+  </ImageGrid>
+) : (
+  "No images"
+)}
+
                   </TableCell>
                   <TableCell>{new Date(seller.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
