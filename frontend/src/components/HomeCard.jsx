@@ -30,38 +30,113 @@ const CardGrid = styled.div`
   }
 `;
 
+
 const Card = styled(motion.div)`
-  background: #fffff0;
-  border-radius: 1rem;
+  background: #ffffff;
+  border-radius: 1.2rem;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 360px;
-  transition: 0.3s;
+  transition: all 0.35s ease;
   margin: 0 auto;
   cursor: pointer;
+  position: relative;
 
   &:hover {
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-    transform: translateY(-4px);
+    transform: translateY(-6px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Border bottom animation */
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0%;
+    height: 3px;
+    background: linear-gradient(90deg, #005ca8, #38bdf8);
+    transition: width 0.4s ease, left 0.4s ease;
+    border-radius: 2px;
+  }
+
+  &:hover::after {
+    width: 100%;
+    left: 0;
   }
 `;
 
 const ImageWrapper = styled.div`
   position: relative;
-  height: 200px;
+  height: 220px;
   overflow: hidden;
+  border-bottom: 1px solid #f1f5f9;
 `;
 
 const PropertyImage = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
+  transition: transform 0.5s ease;
 
   ${Card}:hover & {
-    transform: scale(1.05);
+    transform: scale(1.08);
   }
+`;
+
+const Title = styled.h3`
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+`;
+
+const Location = styled.div`
+  font-size: 14px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+
+  svg {
+    margin-right: 6px;
+    color: #005ca8;
+  }
+`;
+
+const InfoRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #334155;
+  margin-bottom: 14px;
+  justify-content: ${({ propertyType }) =>
+    propertyType === "Flat" || propertyType === "Shop"
+      ? "space-between"
+      : "flex-start"};
+
+  div {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  svg {
+    color: #005ca8;
+  }
+`;
+
+const PriceRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  color: #005ca8;
+  font-weight: 700;
+  align-items: center;
+  font-size: 16px;
 `;
 
 const Overlay = styled.div`
@@ -104,48 +179,6 @@ const CardContent = styled.div`
   padding: 16px;
 `;
 
-const Title = styled.h3`
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 4px;
-`;
-
-const Location = styled.div`
-  font-size: 14px;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-
-  svg {
-    margin-right: 4px;
-  }
-`;
-
-const InfoRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 14px;
-  color: #374151;
-  margin-bottom: 12px;
-  justify-content: ${({ propertyType }) => (propertyType === "Flat" || propertyType === "Shop" ? "space-between" : "flex-start")};
-
-  div {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-`;
-
-const PriceRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  color: #005ca8;
-  font-weight: 600;
-  align-items: center;
-`;
-
 const HomeCard = ({
   id,
   sellerId,
@@ -164,7 +197,7 @@ const HomeCard = ({
   const handleClick = () => navigate(`/property/${id}`);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const setCurrentImageIndex = useState(0);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -185,8 +218,7 @@ const HomeCard = ({
             const sellerData = await sellerResponse.json();
             console.log("Seller API response:", sellerData);
             fetchedImages = Array.isArray(sellerData.images)
-              ? sellerData.images.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
-              : [];
+              ? sellerData.images : [];
           }
         } else {
           // Fetch Property data
@@ -197,8 +229,7 @@ const HomeCard = ({
             const propertyData = await propertyResponse.json();
             console.log("Property API response:", propertyData);
             fetchedImages = Array.isArray(propertyData.images)
-              ? propertyData.images.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
-              : [];
+              ? propertyData.images  : [];
           }
 
           // Fetch Seller images if sellerId (broker_id) is provided
@@ -210,19 +241,18 @@ const HomeCard = ({
               const sellerData = await sellerResponse.json();
               console.log("Seller API response (for Property):", sellerData);
               const sellerImages = Array.isArray(sellerData.images)
-                ? sellerData.images.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
-                : [];
+                ? sellerData.images : [];
               fetchedImages = [...new Set([...fetchedImages, ...sellerImages])];
             }
           }
         }
 
         // Use fetched images or fallback to propImages
-        setImages(fetchedImages.length > 0 ? fetchedImages : Array.isArray(propImages) ? propImages.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) : []);
+        setImages(fetchedImages.length > 0 ? fetchedImages : Array.isArray(propImages) ? propImages : []);
       } catch (err) {
         console.error("Fetch error:", err);
         setError(`Failed to fetch images: ${err.message}`);
-        setImages(Array.isArray(propImages) ? propImages.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) : []);
+        setImages(Array.isArray(propImages) ? propImages : []);
       } finally {
         setLoading(false);
       }
@@ -233,7 +263,7 @@ const HomeCard = ({
     } else {
       console.error("Missing ID for card");
       setError("Missing ID");
-      setImages(Array.isArray(propImages) ? propImages.filter((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file)) : []);
+      setImages(Array.isArray(propImages) ? propImages : []);
       setLoading(false);
     }
   }, [id, sellerId, isSeller, propImages]);
@@ -246,11 +276,8 @@ const HomeCard = ({
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [images.length]);
+  }, []);
 
-  // Debugging log
-  console.log("HomeCard props:", { id, sellerId, isSeller, propertyType, propImages });
-  console.log("Combined images:", images);
 
   const displayType = propertyType && typeof propertyType === "string" 
     ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) 
@@ -276,18 +303,33 @@ const HomeCard = ({
             alt="Error"
           />
         ) : images.length > 0 ? (
-          <PropertyImage
-            key={currentImageIndex}
-            src={`http://localhost:5000${images[currentImageIndex]}`}
-            alt={title || "Property"}
-            onError={(e) => {
-              console.error("Image load error:", images[currentImageIndex]);
-              e.target.src = "https://placehold.co/360x200?text=Image+Not+Found";
-            }}
-          />
+          images.map((file, idx) => {
+            const fileUrl = `http://localhost:5000${file}`;
+            const isVideo = /\.(mp4|webm|ogg)$/i.test(file);
+        
+            return isVideo ? (
+              <video
+                key={idx}
+                src={fileUrl}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                controls
+                muted
+              />
+            ) : (
+              <PropertyImage
+                key={idx}
+                src={fileUrl}
+                alt={title || "Property"}
+                onError={(e) => {
+                  console.error("Image load error:", fileUrl);
+                  e.target.src = "https://placehold.co/360x200?text=Image+Not+Found";
+                }}
+              />
+            );
+          })
         ) : (
           <PropertyImage
-            src="https://placehold.co/360x200?text=No+Image"
+            src="https://placehold.co/360x200?text=No+Media"
             alt="No property"
           />
         )}
@@ -331,12 +373,13 @@ const HomeCard = ({
   );
 };
 
-export const HomeCardGrid = ({ properties }) => {
+export const HomeCardGrid = ({ properties,selectedTaluka }) => {
+  const filteredProperties = selectedTaluka ? properties.filter((property) => property.taluka === selectedTaluka) : properties;
   return (
     <Container>
       <CardGrid>
-        {properties && properties.length > 0 ? (
-          properties.map((property) => (
+        {filteredProperties && filteredProperties.length > 0 ? (
+          filteredProperties.map((property) => (
             <HomeCard
               key={property.id}
               id={property.id}
